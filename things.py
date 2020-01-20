@@ -35,7 +35,9 @@ market_animal = cur.execute("""SELECT name, name_rus, timer FROM animal""").fetc
 
 active_screen = 1
 active_task = 1
-create_mode = 1
+create_mode = 0
+payed_elem = ''
+payed_tip = ''
 coins = 1000
 
 
@@ -76,6 +78,7 @@ def draw_frame():
     pygame.draw.rect(screen, color, (0, 0, 20, SCRENN_SIZE[1]), 0)
     pygame.draw.rect(screen, color, (SCRENN_SIZE[0] - 20, 0, SCRENN_SIZE[0], SCRENN_SIZE[1]), 0)
     pygame.draw.rect(screen, color, (0, 420, SCRENN_SIZE[0], SCRENN_SIZE[1]), 0)
+    market_button_sprites.update()
     market_button_sprites.draw(screen)
     inventar_button_sprites.draw(screen)
     task_button_sprites.draw(screen)
@@ -291,12 +294,14 @@ class ExitButton(pygame.sprite.Sprite):
 
     def __init__(self):
         super().__init__(exit_button_sprites)
-        self.image = ExitButton.image
+        self.image = pygame.transform.scale(ExitButton.image, (50, 50))
         self.rect = self.image.get_rect()
-        self.rect.x = SCRENN_SIZE[0] - 170
-        self.rect.x = SCRENN_SIZE[1] - 10
+        self.rect.x = SCRENN_SIZE[0] - 70
+        self.rect.y = 20
+        self.mask = pygame.mask.from_surface(self.image)
 
-    def on_click(self):
+    def onclick(self):
+        global active_screen
         active_screen = 1
 
 
@@ -309,9 +314,12 @@ class MarketButton(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.y = 440
         self.rect.x = 20
+        self.mask = pygame.mask.from_surface(self.image)
 
-    def on_click(self):
+    def onclick(self):
+        global active_screen
         active_screen = 2
+        return
 
 
 class InventarButton(pygame.sprite.Sprite):
@@ -323,9 +331,12 @@ class InventarButton(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.y = 440
         self.rect.x = 228
+        self.mask = pygame.mask.from_surface(self.image)
 
-    def on_click(self):
+    def onclick(self):
+        global active_screen
         active_screen = 3
+        return
 
 
 class TaskButton(pygame.sprite.Sprite):
@@ -337,75 +348,59 @@ class TaskButton(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.y = 440
         self.rect.x = 488
+        self.mask = pygame.mask.from_surface(self.image)
 
-    def on_click(self):
+    def onclick(self):
+        global active_screen
         active_screen = 4
+        return
 
 
 class PayButton(pygame.sprite.Sprite):
     image = load_image(os.path.join('buttons', 'pay.png'))
 
-    def __init__(self, x, y, elem):
+    def __init__(self, x, y, elem, tip):
         super().__init__(pay_buttons_sprites)
         self.image = PayButton.image
         self.rect = self.image.get_rect()
         self.rect.x = x
         self.rect.y = y
+        self.elem = elem
+        self.tip = tip
+        self.mask = pygame.mask.from_surface(self.image)
+
+    def update(self):
+        if pygame.sprite.collide_mask(self, m):
+            self.onclick()
 
     def onclick(self):
+        global create_mode, active_screen, payed_elem, payed_tip
         create_mode = 1
+        active_screen = 4
+        payed_elem = self.elem
+        payed_tip = self.tip
 
 
 def draw_farmin():
-    pass
-
-
-def draw_market():
-    screen.fill((255, 222, 173))
-
-    font = pygame.font.Font(None, 16)
-    text = font.render('Растения:', 2, (10, 10, 0))
-    text_w = text.get_width()
-    screen.blit(text, (30, 30))
-    for i, elem in enumerate(market_plant):
-        m_image = load_image(os.path.join('plant', elem[0], '5.png'), colorkey=-1)
-        screen.blit(m_image, (30 + 210 * i, 50))
-        font = pygame.font.Font(None, 20)
-        text = font.render(elem[1], 2, (0, 0, 0))
-        screen.blit(text, (30 + 210 * i + 70, 50))
-        text = font.render('Время:' + elem[2], 2, (0, 0, 0))
-        screen.blit(text, (30 + 210 * i + 70, 70))
-    pass
-
-
-def draw_inventar():
-    pass
-
-
-def draw_task():
-    pass
-
-
-magazin = MarketButton()
-inv = InventarButton()
-tas = TaskButton()
-
-running = True
-board = Board(10, 20, 25, 25)
-while running:
     screen.fill((0, 150, 255))
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.MOUSEBUTTONDOWN:
+            if pygame.sprite.collide_mask(magazin, m):
+                magazin.onclick()
             x, y = event.pos
             t = board.get_click(x, y)
-            if t:
+            if t and create_mode == 1:
                 i = t[2][0]
                 j = t[2][1]
                 x = t[0]
                 y = t[1]
-                board.add_item(i, j, Plant(x, y, 'sanimus'))
+                if payed_tip == 'plant':
+                    board.add_item(i, j, Plant(x, y, payed_elem))
+                else:
+                    board.add_item(i, j, Animal(x, y, payed_elem))
+                create_mode = 0
             else:
                 for elem in all_sprites:
                     if pygame.sprite.collide_mask(elem, m):
@@ -416,8 +411,95 @@ while running:
     tiles_group.draw(screen)
     all_sprites.draw(screen)
     all_sprites.update()
-    draw_market()
     draw_frame()
+
+
+def draw_market():
+    screen.fill((255, 222, 173))
+    font = pygame.font.Font(None, 16)
+    text = font.render('Растения:', 2, (10, 10, 0))
+    screen.blit(text, (30, 30))
+    for i, elem in enumerate(market_plant):
+        m_image = load_image(os.path.join('plant', elem[0], '5.png'), colorkey=-1)
+        screen.blit(m_image, (30 + 210 * i, 50))
+        font = pygame.font.Font(None, 20)
+        text = font.render(elem[1], 2, (0, 0, 0))
+        screen.blit(text, (30 + 210 * i + 70, 50))
+        text = font.render('Время:' + elem[2], 2, (0, 0, 0))
+        screen.blit(text, (30 + 210 * i + 70, 70))
+        PayButton(30 + 210 * i, 130, elem[0], 'plant')
+    font = pygame.font.Font(None, 16)
+    text = font.render('Животные:', 2, (10, 10, 0))
+    screen.blit(text, (30, 200))
+    for i, elem in enumerate(market_animal):
+        m_image = load_image(os.path.join('animal', elem[0], '3.png'), colorkey=-1)
+        screen.blit(m_image, (30 + 210 * i, 220))
+        font = pygame.font.Font(None, 20)
+        text = font.render(elem[1], 2, (0, 0, 0))
+        screen.blit(text, (30 + 210 * i + 70, 220))
+        text = font.render('Время:' + elem[2], 2, (0, 0, 0))
+        screen.blit(text, (30 + 210 * i + 70, 240))
+        PayButton(30 + 210 * i, 310, elem[0], 'animal')
+    pay_buttons_sprites.draw(screen)
+    draw_frame()
+    mouse_sprites.update()
+    mouse_sprites.draw(screen)
+    exit_button_sprites.draw(screen)
+    pass
+
+
+def draw_inventar():
+    screen.fill((255, 222, 173))
+    draw_frame()
+    font = pygame.font.Font(None, 30)
+    text = font.render('Появится в будущем', 2, (0, 0, 0))
+    screen.blit(text, (50, 50))
+    mouse_sprites.update()
+    mouse_sprites.draw(screen)
+    exit_button_sprites.draw(screen)
+    pass
+
+
+def draw_task():
+    screen.fill((255, 222, 173))
+    draw_frame()
+    font = pygame.font.Font(None, 30)
+    text = font.render('Появится в будущем', 2, (0, 0, 0))
+    screen.blit(text, (50, 50))
+    mouse_sprites.update()
+    mouse_sprites.draw(screen)
+    exit_button_sprites.draw(screen)
+    pass
+
+
+magazin = MarketButton()
+inv = InventarButton()
+tas = TaskButton()
+e = ExitButton()
+
+running = True
+board = Board(10, 20, 25, 25)
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if pygame.sprite.collide_mask(magazin, m):
+                magazin.onclick()
+            elif pygame.sprite.collide_mask(e, m):
+                e.onclick()
+            elif pygame.sprite.collide_mask(inv, m):
+                inv.onclick()
+            elif pygame.sprite.collide_mask(tas, m):
+                tas.onclick()
+    if active_screen == 1:
+        draw_farmin()
+    elif active_screen == 2:
+        draw_market()
+    elif active_screen == 3:
+        draw_inventar()
+    else:
+        draw_task()
     pygame.display.flip()
     clock.tick(FPS)
 pygame.quit()
