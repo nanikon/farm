@@ -7,7 +7,21 @@ SCRENN_SIZE = (800, 600)
 screen = pygame.display.set_mode(SCRENN_SIZE)
 clock = pygame.time.Clock()
 all_sprites = pygame.sprite.Group()
+plant_sprites = pygame.sprite.Group()
+animal_sprites = pygame.sprite.Group()
 FPS = 60
+
+con = sqlite3.connect("information.db")
+cur = con.cursor()
+inventar = dict()
+product = cur.execute("""SELECT harvest FROM plant""").fetchall()
+for i in product:
+    inventar[i[0]] = 0
+product = cur.execute("""SELECT harvest FROM animal""").fetchall()
+for i in product:
+    inventar[i[0]] = 0
+
+active_screen = 1
 
 
 def load_image(name, colorkey=None):
@@ -50,15 +64,25 @@ class Thing(pygame.sprite.Sprite):
         else:
             maxx = 3
         for i in range(maxx):
-            self.images.append(load_image(os.path.join(tip, name, str(i + 1) + '.jpg')))
+            self.images.append(load_image(os.path.join(tip, name, str(i + 1) + '.png')))
         self.image = self.images[0]
         self.rect = self.image.get_rect()
         self.rect.x = pos_x
         self.rect.y = pos_y
-        self.time_dead = 60 * 60 * 60
+        self.time_dead = cur.execute("""SELECT timer FROM ? WHERE name = ?""", (tip, name)).fetchone()[0].split(':')
+        te = 0
+        for t in self.time_dead:
+            te += int(t)
+        self.time_dead = te * 60
+        self.product = cur.execute("""SELECT harvest FROM ? WHERE name = ?""", (tip, name)).fetchone()[0]
         self.mature = False
 
     def update(self):
+        self.time_dead -= 60
+        if active_screen == 1:
+            self.drawing()
+
+    def drawing(self):
         if self.time_dead <= 0:
             if not self.mature:
                 draw_tick(self.rect.x + self.rect.w // 2, self.rect.y - 22)
@@ -72,11 +96,55 @@ class Thing(pygame.sprite.Sprite):
                 x = self.rect.x + width // 2 - 20
                 y = self.rect.y - 22
                 draw_clock(x, y, s)
-            self.time_dead -= 60
 
     def harvest(self):
         if self.time_dead <= 0:
             self.mature = True
+
+
+class Plant(Thing):
+    def __init__(self, x, y, is_name):
+        super().__init__(plant_sprites, x, y, tip='plant', name=is_name)
+        self.one = self.time_dead // 4
+        self.two = self.time_dead // 2
+        self.three = (self.time_dead // 4) * 3
+
+    def update(self):
+        super().update()
+        if (self.time_dead <= 0) and self.mature:
+            self.kill()
+        elif self.time_dead >= self.three:
+            self.image = self.images[0]
+        elif self.time_dead >= self.two:
+            self.image = self.images[1]
+        elif self.time_dead >= self.one:
+            self.image = self.images[2]
+        elif self.time_dead > 0:
+            self.image = self.images[3]
+        else:
+            self.image = self.images[4]
+
+    def harvest(self):
+        inventar[self.product] += 1
+
+
+class Animal(Thing):
+    def __init__(self, x, y, is_name):
+        super().__init__(animal_sprites, x, y, tip='animal', name=is_name)
+        self.count = 0
+
+    def update(self):
+        super().update()
+
+    def harvest(self):
+        super().harvest()
+        self.mature = False
+        self.count += 1
+        if self.count >= 4:
+            self.image = self.images[2]
+            inventar[self.product] += 1
+        elif self.count >= 2:
+            self.image = self.images[1]
 
 
 running = True
