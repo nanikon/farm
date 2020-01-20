@@ -17,6 +17,7 @@ clock = pygame.time.Clock()
 # load map data
 gameMap = pytmx.load_pygame(filename, pixelalpha=True)
 
+
 def game_loop():
     gameExit = False
     while not gameExit:

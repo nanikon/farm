@@ -6,10 +6,15 @@ pygame.init()
 SCRENN_SIZE = (800, 600)
 screen = pygame.display.set_mode(SCRENN_SIZE)
 clock = pygame.time.Clock()
+FPS = 60
+
 all_sprites = pygame.sprite.Group()
 plant_sprites = pygame.sprite.Group()
 animal_sprites = pygame.sprite.Group()
-FPS = 60
+exit_button_sprites = pygame.sprite.Group()
+market_button_sprites = pygame.sprite.Group()
+inventar_button_sprites = pygame.sprite.Group()
+task_button_sprites = pygame.sprite.Group()
 
 con = sqlite3.connect("information.db")
 cur = con.cursor()
@@ -22,6 +27,8 @@ for i in product:
     inventar[i[0]] = 0
 
 active_screen = 1
+active_task = 1
+coins = 1000
 
 
 def load_image(name, colorkey=None):
@@ -61,20 +68,28 @@ class Thing(pygame.sprite.Sprite):
         self.images = []
         if tip == 'plant':
             maxx = 5
+            t = cur.execute("""SELECT timer FROM plant WHERE name = ?""",
+                                         (name,)).fetchall()[0][0]
+            self.time_dead = t.split(':')[::-1]
+            self.product = cur.execute("""SELECT harvest FROM plant WHERE name = ?""",
+                                       (name,)).fetchall()[0][0]
         else:
             maxx = 3
+            self.time_dead = cur.execute("""SELECT timer FROM animal WHERE name = ?""",
+                                         (name,)).fetchall()[0][0].split(':')[::-1]
+            self.product = cur.execute("""SELECT harvest FROM animal WHERE name = ?""",
+                                       (name,)).fetchall()[0][0]
         for i in range(maxx):
-            self.images.append(load_image(os.path.join(tip, name, str(i + 1) + '.png')))
+            self.images.append(load_image(os.path.join(tip, name, str(i + 1) + '.png'), colorkey=(255, 255, 255)))
         self.image = self.images[0]
         self.rect = self.image.get_rect()
         self.rect.x = pos_x
         self.rect.y = pos_y
-        self.time_dead = cur.execute("""SELECT timer FROM ? WHERE name = ?""", (tip, name)).fetchone()[0].split(':')
+        self.add(all_sprites)
         te = 0
-        for t in self.time_dead:
-            te += int(t)
+        for t in range(len(self.time_dead)):
+            te += (int(self.time_dead[t]) * 60 ** (t + 1))
         self.time_dead = te * 60
-        self.product = cur.execute("""SELECT harvest FROM ? WHERE name = ?""", (tip, name)).fetchone()[0]
         self.mature = False
 
     def update(self):
@@ -125,6 +140,7 @@ class Plant(Thing):
             self.image = self.images[4]
 
     def harvest(self):
+        super().harvest()
         inventar[self.product] += 1
 
 
@@ -147,6 +163,72 @@ class Animal(Thing):
             self.image = self.images[1]
 
 
+class ExitButton(pygame.sprite.Sprite):
+    image = load_image(os.path.join('buttons', 'exit.png'))
+
+    def __init__(self):
+        super().__init__(exit_button_sprites)
+        self.image = ExitButton.image
+        self.rect = self.image.get_rect()
+        self.rect.x = SCRENN_SIZE[0] - 170
+        self.rect.x = SCRENN_SIZE[1] - 10
+
+    def on_click(self):
+        active_screen = 1
+
+
+class MarketButton(pygame.sprite.Sprite):
+    image = load_image(os.path.join('buttons', 'market.png'))
+
+    def __init__(self):
+        super().__init__(market_button_sprites)
+        self.image = MarketButton.image
+        self.rect = self.image.get_rect()
+
+    def on_click(self):
+        active_screen = 2
+
+
+class InventarButton(pygame.sprite.Sprite):
+    image = load_image(os.path.join('buttons', 'inventar.png'))
+
+    def __init__(self):
+        super().__init__(inventar_button_sprites)
+        self.image = InventarButton.image
+        self.rect = self.image.get_rect()
+
+    def on_click(self):
+        active_screen = 3
+
+
+class TaskButton(pygame.sprite.Sprite):
+    image = load_image(os.path.join('buttons', 'task.png'))
+
+    def __init__(self):
+        super().__init__(task_button_sprites)
+        self.image = TaskButton.image
+        self.rect = self.image.get_rect()
+
+    def on_click(self):
+        active_screen = 4
+
+
+def draw_farmin():
+    pass
+
+
+def draw_market():
+    pass
+
+
+def draw_inventar():
+    pass
+
+
+def draw_task():
+    pass
+
+
 running = True
 while running:
     screen.fill((0, 0, 0))
@@ -161,7 +243,7 @@ while running:
                     thing.harvest()
                     hav = False
             if hav:
-                Thing(all_sprites, x, y)
+                Plant(x, y, 'sunflower')
     all_sprites.update()
     all_sprites.draw(screen)
     pygame.display.flip()
