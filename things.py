@@ -371,40 +371,38 @@ class PayButton(pygame.sprite.Sprite):
 
     def update(self):
         if pygame.sprite.collide_mask(self, m):
-            self.onclick()
+            if pygame.mouse.get_pressed() != (0, 0, 0):
+                self.onclick()
 
     def onclick(self):
         global create_mode, active_screen, payed_elem, payed_tip
         create_mode = 1
-        active_screen = 4
+        active_screen = 1
         payed_elem = self.elem
         payed_tip = self.tip
+        clock.tick(FPS)
 
 
 def draw_farmin():
+    global create_mode, payed_tip
     screen.fill((0, 150, 255))
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if pygame.sprite.collide_mask(magazin, m):
-                magazin.onclick()
-            x, y = event.pos
-            t = board.get_click(x, y)
-            if t and create_mode == 1:
-                i = t[2][0]
-                j = t[2][1]
-                x = t[0]
-                y = t[1]
-                if payed_tip == 'plant':
-                    board.add_item(i, j, Plant(x, y, payed_elem))
-                else:
-                    board.add_item(i, j, Animal(x, y, payed_elem))
-                create_mode = 0
+    if pygame.mouse.get_pressed() != (0, 0, 0):
+        x, y = event.pos
+        t = board.get_click(x, y)
+        if t and create_mode == 1:
+            i = t[2][0]
+            j = t[2][1]
+            x = t[0]
+            y = t[1]
+            if payed_tip == 'plant':
+                board.add_item(i, j, Plant(x, y, payed_elem))
             else:
-                for elem in all_sprites:
-                    if pygame.sprite.collide_mask(elem, m):
-                        elem.harvest()
+                board.add_item(i, j, Animal(x, y, payed_elem))
+            create_mode = 0
+        else:
+            for elem in all_sprites:
+                if pygame.sprite.collide_mask(elem, m):
+                    elem.harvest()
     mouse_sprites.update()
     mouse_sprites.draw(screen)
     tiles_group.update()
@@ -440,11 +438,13 @@ def draw_market():
         text = font.render('Время:' + elem[2], 2, (0, 0, 0))
         screen.blit(text, (30 + 210 * i + 70, 240))
         PayButton(30 + 210 * i, 310, elem[0], 'animal')
+    pay_buttons_sprites.update()
     pay_buttons_sprites.draw(screen)
     draw_frame()
     mouse_sprites.update()
     mouse_sprites.draw(screen)
     exit_button_sprites.draw(screen)
+    all_sprites.update()
     pass
 
 
@@ -457,6 +457,7 @@ def draw_inventar():
     mouse_sprites.update()
     mouse_sprites.draw(screen)
     exit_button_sprites.draw(screen)
+    all_sprites.update()
     pass
 
 
@@ -469,6 +470,7 @@ def draw_task():
     mouse_sprites.update()
     mouse_sprites.draw(screen)
     exit_button_sprites.draw(screen)
+    all_sprites.update()
     pass
 
 
